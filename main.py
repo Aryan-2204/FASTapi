@@ -1,5 +1,6 @@
 from fastapi import FastAPI,Path,Query,HTTPException#importing required modules from FastAPI
 from pydantic import BaseModel,Field,computed_field
+from fastapi.responses import JSONResponse
 from typing import Annotated,Literal
 import json
 
@@ -36,6 +37,11 @@ def load_data():
     with open('patients.json', 'r') as f:
         data = json.load(f)
     return data 
+
+def save_data(data):
+    with open('patients.json', 'w') as f:
+        json.dump(data, f, indent=4)
+# Define the FastAPI application and the Patient model, which includes fields for id, name, city, age
 
 @app.get("/")#decorator that defines a route for the root URL ("/") and specifies that it will handle GET requests
 def hello():
@@ -80,9 +86,12 @@ def create_patient(patient: Patient):
     if patient.id in data:
         return {'message': 'Patient with this ID already exists.'}
     
-    data[patient.id] = patient.model_dump()
+    data[patient.id] = patient.model_dump(exclude=['id'])
     
     with open('patients.json', 'w') as f:
         json.dump(data, f, indent=4)
     
-    return {'message': 'Patient created successfully.', 'patient': patient.model_dump()}
+    save_data(data)
+    return JSONResponse(content={'message': 'Patient created successfully.'})
+
+   
