@@ -1,7 +1,36 @@
-from fastapi import FastAPI,Path,Query #importing required modules from FastAPI
+from fastapi import FastAPI,Path,Query,HTTPException#importing required modules from FastAPI
+from pydantic import BaseModel,Field,computed_field
+from typing import Annotated,Literal
 import json
 
 app = FastAPI() #object created from FastAPI class, which is used to create the API application
+
+class Patient(BaseModel): #class that represents a patient with various attributes
+    id:Annotated[str,Field(...,description="ID of the Patient",example=['POO1]','POO2'])]
+    name : Annotated[str,Field(...,description="Name of the Patient",example='Sachin')] #Annotated is used to specify
+    city : Annotated[str,Field(...,description="City of the Patient",example='Gurgaon')] #Annotated is used to specify  
+    age : Annotated[int,Field(...,gt=0,lt=120,description="Age")] #Annotated is used to specify  
+    gender : Annotated[Literal["male","female","other"],Field(...,description="Gender of patient")]                                                                                               
+    height : Annotated[float,Field(...,gt=0,description="Height of the patient")]
+    weight : Annotated[float,Field(...,gt=0,description="Weight of the patient")]
+    
+@computed_field
+@property
+def bmi(self) -> float :
+    bmi=round(self.weight / (self.height ** 2),2)
+    return bmi
+@computed_field
+@property
+def health_verdict(self) -> str:
+    if self.bmi < 18.5:
+        return 'Underweight'
+    elif 18.5 <= self.bmi < 25:
+        return 'Normal weight'
+    elif 25 <= self.bmi < 30:
+        return 'Overweight'
+    else:
+        return 'Obese'
+
 
 def load_data():
     with open('patients.json', 'r') as f:
@@ -43,3 +72,17 @@ def sort_patients(sort_by: str=Query(..., description="Field to sort by (age, bm
     
     sorted_data = dict(sorted(data.items(), key=lambda item: item[1][sort_by]))
     return sorted_data
+
+
+@app.post('/create')
+def create_patient(patient: Patient):
+    data = load_data()
+    if patient.id in data:
+        return {'message': 'Patient with this ID already exists.'}
+    
+    data[patient.id] = patient.model_dump()
+    
+    with open('patients.json', 'w') as f:
+        json.dump(data, f, indent=4)
+    
+    return {'message': 'Patient created successfully.', 'patient': patient.model_dump()}
